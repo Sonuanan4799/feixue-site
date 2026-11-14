@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>飞雪后台审核</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0;font-family:system-ui,sans-serif}
+body{background:#f7f8fa;color:#222;max-width:800px;margin:2rem auto;padding:0 16px}
+h1{text-align:center;margin-bottom:24px}
+.login-box{background:#fff;padding:20px;border-radius:10px;box-shadow:0 2px 8px #00000012;margin-bottom:20px}
+.item{margin-bottom:12px}
+label{display:block;margin-bottom:4px;font-weight:500}
+input{width:100%;padding:10px;border:1px solid #ddd;border-radius:8px}
+button{padding:10px 16px;border:none;border-radius:8px;background:#4466ff;color:#fff;cursor:pointer}
+button:hover{background:#3355ee}
+#list{margin-top:20px}
+.card{background:#fff;padding:16px;border-radius:10px;margin-bottom:14px;box-shadow:0 2px 8px #00000012}
+.meta{color:#666;font-size:13px;margin-bottom:8px}
+.content{white-space:pre-wrap;line-height:1.6;margin-bottom:10px}
+.btns button{margin-right:8px}
+#msg{margin:10px 0;text-align:center}
+</style>
+</head>
+<body>
+<h1>后台审核</h1>
+<div class="login-box" id="loginPanel">
+  <div class="item">
+    <label>管理员密钥</label>
+    <input type="password" id="pwd">
+  </div>
+  <button onclick="login()">登录</button>
+  <div id="msg"></div>
+</div>
+<div id="panel" style="display:none">
+  <button onclick="loadList()">刷新列表</button>
+  <div id="list"></div>
+</div>
+
+<script>
+let token = "";
+const msgBox = document.getElementById("msg");
+
+async function login(){
+  const pwd = document.getElementById("pwd").value.trim();
+  if(!pwd) return showMsg("请输入密钥");
+  const res = await fetch("/api/list",{
+    method:"POST",
+    headers:{"Content-Type":"application/json"},
+    body:JSON.stringify({secret:pwd})
+  })
+  const r = await res.json();
+  if(r.ok){
+    token = pwd;
+    document.getElementById("loginPanel").style.display="none";
+    document.getElementById("panel").style.display="block";
+    loadList();
+  }else{
+    showMsg("密钥错误");
+  }
+}
+
+async function loadList(){
+  const res = await fetch("/api/list",{
+    method:"POST",
+    headers:{"Content-Type":"application/json"},
+    body:JSON.stringify({secret:token})
+  })
+  const r = await res.json();
+  const wrap = document.getElementById("list");
+  wrap.innerHTML = "";
+  if(!r.ok){ wrap.innerHTML = "<p>加载失败</p>"; return; }
+  r.data.forEach(item=>{
+    const div = document.createElement("div");
+    div.className="card";
+    div.innerHTML = `
+      <div class="meta">ID:${item.id}｜昵称：${item.name}｜${item.contact||"无联系方式"}｜状态：${item.status}</div>
+      <div class="content">${item.content}</div>
+      <div class="btns">
+        <button onclick="review(${item.id},'pass')">通过</button>
+        <button onclick="review(${item.id},'reject')">驳回</button>
+      </div>
+    `;
+    wrap.appendChild(div);
+  })
+}
+
+async function review(id,act){
+  const res = await fetch("/api/review",{
+    method:"POST",
+    headers:{"Content-Type":"application/json"},
+    body:JSON.stringify({secret:token,id,action:act})
+  })
+  const r = await res.json();
+  if(r.ok) loadList();
+  else showMsg(r.msg);
+}
+
+function showMsg(t){
+  msgBox.innerText = t;
+  setTimeout(()=>msgBox.innerText="",2000);
+}
+</script>
+</body>
+</html>
